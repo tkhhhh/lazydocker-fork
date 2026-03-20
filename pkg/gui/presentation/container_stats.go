@@ -1,6 +1,7 @@
 package presentation
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"reflect"
@@ -16,6 +17,36 @@ import (
 	"github.com/mcuadros/go-lookup"
 	"github.com/samber/lo"
 )
+
+var SCHEMA_JSON = `{
+	"client_stats": {
+		"cpu_stats": {
+			"cpu_usage": {
+				"total_usage":         "seconds",
+				"percpu_usage":        []string{"seconds"},
+				"usage_in_kernelmode": "seconds",
+				"usage_in_usermode":   "seconds",
+			},
+			"system_cpu_usage": "seconds",
+		},
+		"precpu_stats": {
+			"cpu_usage": {
+				"total_usage":         "seconds",
+				"percpu_usage":        []string{"seconds"},
+				"usage_in_kernelmode": "seconds",
+				"usage_in_usermode":   "seconds",
+			},
+			"system_cpu_usage": "seconds",
+		},
+		"memory_stats": {
+			"stats": {
+				"hierarchical_memory_limit": "bytes",
+				"hierarchical_memsw_limit":  "bytes",
+			},
+			"limit": "bytes",
+		},
+	},
+}`
 
 func RenderStats(userConfig *config.UserConfig, container *commands.Container, viewWidth int) (string, error) {
 	stats, ok := container.GetLastStats()
@@ -143,4 +174,38 @@ func getFloat(unk interface{}) (float64, error) {
 			return math.NaN(), fmt.Errorf("Can't convert %v to float64", v.Type())
 		}
 	}
+}
+
+func lookupAndConvertBigMetric(data *interface{}, path string) error {
+	var schema map[string]interface{}
+
+	// Unmarshal
+	err := json.Unmarshal([]byte(SCHEMA_JSON), &schema)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return err
+	}
+
+	err = convertBigMetricFromSchema(data, path, schema)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func convertBigMetricFromSchema(data *interface{}, path string, schema interface{}) error {
+	switch value := schema.(type) {
+	case map[string]interface{}:
+		for key, val := range value {
+			path = strings.TrimSuffix(path, fmt.Sprintf(".%s", key))
+			return convertBigMetricFromSchema(data, path, val)
+		}
+	case []string:
+		// use path to translate from []int to []string
+		return nil
+	case string:
+		// use path to translate from int/int64 to string
+		return nil
+	}
+	return nil
 }
