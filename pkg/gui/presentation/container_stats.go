@@ -22,21 +22,21 @@ var SCHEMA_JSON = `{
 	"client_stats": {
 		"cpu_stats": {
 			"cpu_usage": {
-				"total_usage":         "seconds",
-				"percpu_usage":        []string{"seconds"},
-				"usage_in_kernelmode": "seconds",
-				"usage_in_usermode":   "seconds",
+				"total_usage":         "nanoseconds",
+				"percpu_usage":        []string{"nanoseconds"},
+				"usage_in_kernelmode": "nanoseconds",
+				"usage_in_usermode":   "nanoseconds",
 			},
-			"system_cpu_usage": "seconds",
+			"system_cpu_usage": "nanoseconds",
 		},
 		"precpu_stats": {
 			"cpu_usage": {
-				"total_usage":         "seconds",
-				"percpu_usage":        []string{"seconds"},
-				"usage_in_kernelmode": "seconds",
-				"usage_in_usermode":   "seconds",
+				"total_usage":         "nanoseconds",
+				"percpu_usage":        []string{"nanoseconds"},
+				"usage_in_kernelmode": "nanoseconds",
+				"usage_in_usermode":   "nanoseconds",
 			},
-			"system_cpu_usage": "seconds",
+			"system_cpu_usage": "nanoseconds",
 		},
 		"memory_stats": {
 			"stats": {
@@ -68,7 +68,20 @@ func RenderStats(userConfig *config.UserConfig, container *commands.Container, v
 	dataReceived := fmt.Sprintf("Traffic received: %s", utils.FormatDecimalBytes(stats.ClientStats.Networks.Eth0.RxBytes))
 	dataSent := fmt.Sprintf("Traffic sent: %s", utils.FormatDecimalBytes(stats.ClientStats.Networks.Eth0.TxBytes))
 
-	originalStats, err := utils.MarshalIntoYaml(stats)
+	statsJsonBytes, err := json.Marshal(stats)
+	if err != nil {
+		return "", err
+	}
+
+	var statsMap map[string]interface{}
+	err = json.Unmarshal(statsJsonBytes, &statsMap)
+	if err != nil {
+		return "", err
+	}
+
+	lookupAndConvertBigMetric(&statsMap)
+
+	originalStats, err := utils.MarshalIntoYaml(statsMap)
 	if err != nil {
 		return "", err
 	}
@@ -176,7 +189,7 @@ func getFloat(unk interface{}) (float64, error) {
 	}
 }
 
-func lookupAndConvertBigMetric(data *interface{}, path string) error {
+func lookupAndConvertBigMetric(data *map[string]interface{}) error {
 	var schema map[string]interface{}
 
 	// Unmarshal
@@ -186,14 +199,14 @@ func lookupAndConvertBigMetric(data *interface{}, path string) error {
 		return err
 	}
 
-	err = convertBigMetricFromSchema(data, path, schema)
+	err = convertBigMetricFromSchema(data, "", schema)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func convertBigMetricFromSchema(data *interface{}, path string, schema interface{}) error {
+func convertBigMetricFromSchema(data *map[string]interface{}, path string, schema interface{}) error {
 	switch value := schema.(type) {
 	case map[string]interface{}:
 		for key, val := range value {
@@ -202,10 +215,31 @@ func convertBigMetricFromSchema(data *interface{}, path string, schema interface
 		}
 	case []string:
 		// use path to translate from []int to []string
-		return nil
+		metric, err := lookup.LookupString(data, path)
+		if err != nil {
+			return err
+		}
+		if reflect.TypeOf(metric.Interface()) != reflect.TypeOf([]int64{}) {
+			return fmt.Errorf("Can't convert %v to []int64", reflect.TypeOf(metric.Interface()))
+		} else {
+			longIntSlice := metric.Interface().([]int64)
+			formattedMetric := lo.Map(longIntSlice, func(val int64, index int) string {
+				return utils.FormatBigMetric(val, value[index])
+			})
+			return utils.SetObjectFieldByPath(data, path, formattedMetric)
+		}
 	case string:
 		// use path to translate from int/int64 to string
-		return nil
+		metric, err := lookup.LookupString(data, path)
+		if err != nil {
+			return err
+		}
+		if reflect.TypeOf(metric.Interface()) != reflect.TypeOf(int64(0)) {
+			return fmt.Errorf("Can't convert %v to int64", reflect.TypeOf(metric.Interface()))
+		} else {
+			formattedMetric := utils.FormatBigMetric(metric.Interface().(int64), value)
+			return utils.SetObjectFieldByPath(data, path, formattedMetric)
+		}
 	}
 	return nil
 }
