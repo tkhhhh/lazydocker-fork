@@ -319,3 +319,170 @@ quux:
 		}
 	}
 }
+
+func TestSetObjectFieldByPath(t *testing.T) {
+	type scenario struct {
+		object      *map[string]interface{}
+		path        string
+		value       interface{}
+		expected    map[string]interface{}
+		expectedErr error
+	}
+
+	scenarios := []scenario{
+		{
+			object: &map[string]interface{}{
+				"foo": "replacement",
+			},
+			path:        ".foo",
+			value:       "bar",
+			expected:    map[string]interface{}{"foo": "bar"},
+			expectedErr: nil,
+		},
+		{
+			object: &map[string]interface{}{
+				"foo": map[string]interface{}{
+					"bar": "replacement",
+				},
+			},
+			path:        ".foo.bar",
+			value:       "bar_1",
+			expected:    map[string]interface{}{"foo": map[string]interface{}{"bar": "bar_1"}},
+			expectedErr: nil,
+		},
+		{
+			object: &map[string]interface{}{
+				"foo": map[string]interface{}{
+					"foo_1": "foo_1_1",
+					"foo_2": map[string]interface{}{
+						"foo_2_1": "foo_2_1_1",
+					},
+					"foo_3": map[string]interface{}{
+						"foo_3_1": "foo_3_1_1",
+						"foo_3_2": "foo_3_2_1",
+						"foo_3_3": map[string]interface{}{
+							"foo_3_3_1": "foo_3_3_1_1",
+							"foo_3_3_2": "foo_3_3_2_1",
+						},
+					},
+					"bar": map[string]interface{}{
+						"bar_1": "replacement",
+					},
+				},
+			},
+			path:  ".foo.bar.bar_1",
+			value: "bar_1_1",
+			expected: map[string]interface{}{
+				"foo": map[string]interface{}{
+					"foo_1": "foo_1_1",
+					"foo_2": map[string]interface{}{
+						"foo_2_1": "foo_2_1_1",
+					},
+					"foo_3": map[string]interface{}{
+						"foo_3_1": "foo_3_1_1",
+						"foo_3_2": "foo_3_2_1",
+						"foo_3_3": map[string]interface{}{
+							"foo_3_3_1": "foo_3_3_1_1",
+							"foo_3_3_2": "foo_3_3_2_1",
+						},
+					},
+					"bar": map[string]interface{}{
+						"bar_1": "bar_1_1",
+					},
+				},
+			},
+			expectedErr: nil,
+		},
+		{
+			object: &map[string]interface{}{
+				"foo": map[string]interface{}{
+					"foo_1": "foo_1_1",
+					"foo_2": map[string]interface{}{
+						"foo_2_1": "foo_2_1_1",
+					},
+					"foo_3": map[string]interface{}{
+						"foo_3_1": "foo_3_1_1",
+						"foo_3_2": "foo_3_2_1",
+						"foo_3_3": map[string]interface{}{
+							"foo_3_3_1": "foo_3_3_1_1",
+							"foo_3_3_2": "foo_3_3_2_1",
+						},
+					},
+					"bar": map[string]interface{}{
+						"bar_1": map[string]interface{}{
+							"bar_1_1": map[string]interface{}{
+								"bar_1_1_1": map[string]interface{}{
+									"bar_1_1_1_1": "replacement",
+								},
+							},
+						},
+					},
+				},
+			},
+			path:  ".foo.bar.bar_1.bar_1_1.bar_1_1_1.bar_1_1_1_1",
+			value: "bar_1_1_1_1_1",
+			expected: map[string]interface{}{
+				"foo": map[string]interface{}{
+					"foo_1": "foo_1_1",
+					"foo_2": map[string]interface{}{
+						"foo_2_1": "foo_2_1_1",
+					},
+					"foo_3": map[string]interface{}{
+						"foo_3_1": "foo_3_1_1",
+						"foo_3_2": "foo_3_2_1",
+						"foo_3_3": map[string]interface{}{
+							"foo_3_3_1": "foo_3_3_1_1",
+							"foo_3_3_2": "foo_3_3_2_1",
+						},
+					},
+					"bar": map[string]interface{}{
+						"bar_1": map[string]interface{}{
+							"bar_1_1": map[string]interface{}{
+								"bar_1_1_1": map[string]interface{}{
+									"bar_1_1_1_1": "bar_1_1_1_1_1",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErr: nil,
+		},
+		{
+			object: &map[string]interface{}{
+				"foo": map[string]interface{}{
+					"bar": "replacement",
+				},
+			},
+			path:        "",
+			value:       "bar_1",
+			expected:    map[string]interface{}{"foo": map[string]interface{}{"bar": "replacement"}},
+			expectedErr: nil,
+		},
+		{
+			object: &map[string]interface{}{
+				"foo": map[string]interface{}{
+					"bar": "replacement",
+				},
+			},
+			path:  "foo.bar",
+			value: "bar_1",
+			expected: map[string]interface{}{
+				"foo": map[string]interface{}{
+					"bar": "replacement",
+				},
+			},
+			expectedErr: errors.New("Invalid path format foo.bar, path should start with a dot"),
+		},
+	}
+
+	for _, s := range scenarios {
+		err := SetObjectFieldByPath(s.object, s.path, s.value)
+		assert.EqualValues(t, s.expected, *s.object)
+		if s.expectedErr != nil {
+			assert.EqualError(t, err, s.expectedErr.Error())
+		} else {
+			assert.NoError(t, err)
+		}
+	}
+}
