@@ -210,12 +210,12 @@ func convertBigMetricFromSchema(data *map[string]interface{}, path string, schem
 	switch value := schema.(type) {
 	case map[string]interface{}:
 		for key, val := range value {
-			path = strings.TrimSuffix(path, fmt.Sprintf(".%s", key))
+			path = fmt.Sprintf("%s.%s", path, key)
 			return convertBigMetricFromSchema(data, path, val)
 		}
 	case []string:
 		// use path to translate from []int to []string
-		metric, err := lookup.LookupString(data, path)
+		metric, err := lookup.LookupString(data, strings.TrimPrefix(path, "."))
 		if err != nil {
 			return err
 		}
@@ -230,7 +230,7 @@ func convertBigMetricFromSchema(data *map[string]interface{}, path string, schem
 		}
 	case string:
 		// use path to translate from int/int64 to string
-		metric, err := lookup.LookupString(data, path)
+		metric, err := lookup.LookupString(data, strings.TrimPrefix(path, "."))
 		if err != nil {
 			return err
 		}
