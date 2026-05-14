@@ -417,11 +417,16 @@ func marshalIntoFormat(data interface{}, format string) ([]byte, error) {
 func FormatBigMetric(number int64, baseUnitName string) string {
 	memoryUnits := []string{"KB", "MB", "GB", "TB"}
 	cpuUnits := []string{"µs", "ms", "s", "m", "h"}
-	const unit = 1000
+	var unit int64
+	if baseUnitName == "bytes" {
+		unit = 1024
+	} else {
+		unit = 1000
+	}
 	if number < unit {
 		return fmt.Sprintf("%d", number)
 	}
-	div, exp := int64(unit), 0
+	div, exp := int64(unit), 1
 	for n := number / unit; n >= unit; n /= unit {
 		div *= unit
 		exp++

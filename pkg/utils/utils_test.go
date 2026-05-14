@@ -486,3 +486,101 @@ func TestSetObjectFieldByPath(t *testing.T) {
 		}
 	}
 }
+
+func TestFormatBigMetric(t *testing.T) {
+	tests := []struct {
+		name         string
+		number       int64
+		baseUnitName string
+		expected     string
+	}{
+		// Bytes tests
+		{
+			name:         "bytes: small value",
+			number:       500,
+			baseUnitName: "bytes",
+			expected:     "500",
+		},
+		{
+			name:         "bytes: KB",
+			number:       1500,
+			baseUnitName: "bytes",
+			expected:     "1.465 KB",
+		},
+		{
+			name:         "bytes: MB",
+			number:       1500000,
+			baseUnitName: "bytes",
+			expected:     "1.431 MB",
+		},
+		{
+			name:         "bytes: GB",
+			number:       1500000000,
+			baseUnitName: "bytes",
+			expected:     "1.397 GB",
+		},
+		{
+			name:         "bytes: TB",
+			number:       1500000000000,
+			baseUnitName: "bytes",
+			expected:     "1.364 TB",
+		},
+		// Nanoseconds tests
+		{
+			name:         "nanoseconds: small value",
+			number:       500,
+			baseUnitName: "nanoseconds",
+			expected:     "500",
+		},
+		{
+			name:         "nanoseconds: µs",
+			number:       1500,
+			baseUnitName: "nanoseconds",
+			expected:     "1.500 µs",
+		},
+		{
+			name:         "nanoseconds: ms",
+			number:       1500000,
+			baseUnitName: "nanoseconds",
+			expected:     "1.500 ms",
+		},
+		{
+			name:         "nanoseconds: s",
+			number:       1500000000,
+			baseUnitName: "nanoseconds",
+			expected:     "1.500 s",
+		},
+		{
+			name:         "nanoseconds: m",
+			number:       1500000000000,
+			baseUnitName: "nanoseconds",
+			expected:     "1.500 m",
+		},
+		{
+			name:         "nanoseconds: h",
+			number:       1500000000000000,
+			baseUnitName: "nanoseconds",
+			expected:     "1.500 h",
+		},
+		// Exact boundaries
+		{
+			name:         "bytes: exact 1024",
+			number:       1024,
+			baseUnitName: "bytes",
+			expected:     "1.000 KB",
+		},
+		{
+			name:         "bytes: 1023",
+			number:       1023,
+			baseUnitName: "bytes",
+			expected:     "1023",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := FormatBigMetric(tt.number, tt.baseUnitName)
+			assert.EqualValues(t, tt.expected, result)
+		})
+	}
+}
