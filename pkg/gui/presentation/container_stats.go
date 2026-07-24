@@ -65,7 +65,7 @@ func RenderStats(userConfig *config.UserConfig, container *commands.Container, v
 		return "", err
 	}
 
-	err = convertBigMetricFromSchema(&statsMap)
+	err = convertBigMetric(&statsMap)
 	if err != nil {
 		return "", err
 	}
@@ -179,7 +179,7 @@ func getFloat(unk interface{}) (float64, error) {
 	}
 }
 
-func convertBigMetricFromSchema(data *map[string]interface{}) error {
+func convertBigMetric(data *map[string]interface{}) error {
 	// switch value := schema.(type) {
 	// case map[string]interface{}:
 	// 	for key, val := range value {

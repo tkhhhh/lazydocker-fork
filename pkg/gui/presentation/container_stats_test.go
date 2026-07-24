@@ -212,7 +212,7 @@ func TestConvertBigMetricFromSchema(t *testing.T) {
 	for _, s := range scenarios {
 		t.Run(s.name, func(t *testing.T) {
 			data := s.data
-			err := convertBigMetricFromSchema(&data)
+			err := convertBigMetric(&data)
 			if s.expectedErr != "" {
 				assert.EqualError(t, err, s.expectedErr)
 			} else {
