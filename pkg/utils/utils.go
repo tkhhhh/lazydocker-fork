@@ -433,9 +433,9 @@ func FormatBigMetric(number int64, baseUnitName string) string {
 	}
 	switch baseUnitName {
 	case "bytes":
-		return fmt.Sprintf("%.3f %s", float64(number)/float64(div), memoryUnits[exp-1])
+		return fmt.Sprintf("%.3f%s", float64(number)/float64(div), memoryUnits[exp-1])
 	case "nanoseconds":
-		return fmt.Sprintf("%.3f %s", float64(number)/float64(div), cpuUnits[exp-1])
+		return fmt.Sprintf("%.3f%s", float64(number)/float64(div), cpuUnits[exp-1])
 	default:
 		return fmt.Sprintf("%d", number)
 	}

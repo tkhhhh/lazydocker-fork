@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -49,19 +50,19 @@ import (
 // }`
 
 var PATHS_TO_CONVERT_BIGMETRICS = []map[string]string{
-	{"client_stats.cpu_stats.cpu_usage.total_usage": "nanoseconds"},
-	{"client_stats.cpu_stats.cpu_usage.percpu_usage": "nanoseconds"},
-	{"client_stats.cpu_stats.cpu_usage.usage_in_kernelmode": "nanoseconds"},
-	{"client_stats.cpu_stats.cpu_usage.usage_in_usermode": "nanoseconds"},
-	{"client_stats.cpu_stats.system_cpu_usage": "nanoseconds"},
-	{"client_stats.precpu_stats.cpu_usage.total_usage": "nanoseconds"},
-	{"client_stats.precpu_stats.cpu_usage.percpu_usage": "nanoseconds"},
-	{"client_stats.precpu_stats.cpu_usage.usage_in_kernelmode": "nanoseconds"},
-	{"client_stats.precpu_stats.cpu_usage.usage_in_usermode": "nanoseconds"},
-	{"client_stats.precpu_stats.system_cpu_usage": "nanoseconds"},
-	{"client_stats.memory_stats.limit": "bytes"},
-	{"client_stats.memory_stats.stats.hierarchical_memory_limit": "bytes"},
-	{"client_stats.memory_stats.stats.hierarchical_memsw_limit": "bytes"},
+	{"ClientStats.cpu_stats.cpu_usage.total_usage": "nanoseconds"},
+	{"ClientStats.cpu_stats.cpu_usage.percpu_usage": "nanoseconds"},
+	{"ClientStats.cpu_stats.cpu_usage.usage_in_kernelmode": "nanoseconds"},
+	{"ClientStats.cpu_stats.cpu_usage.usage_in_usermode": "nanoseconds"},
+	{"ClientStats.cpu_stats.system_cpu_usage": "nanoseconds"},
+	{"ClientStats.precpu_stats.cpu_usage.total_usage": "nanoseconds"},
+	{"ClientStats.precpu_stats.cpu_usage.percpu_usage": "nanoseconds"},
+	{"ClientStats.precpu_stats.cpu_usage.usage_in_kernelmode": "nanoseconds"},
+	{"ClientStats.precpu_stats.cpu_usage.usage_in_usermode": "nanoseconds"},
+	{"ClientStats.precpu_stats.system_cpu_usage": "nanoseconds"},
+	{"ClientStats.memory_stats.limit": "bytes"},
+	{"ClientStats.memory_stats.stats.hierarchical_memory_limit": "bytes"},
+	{"ClientStats.memory_stats.stats.hierarchical_memsw_limit": "bytes"},
 }
 
 func RenderStats(userConfig *config.UserConfig, container *commands.Container, viewWidth int) (string, error) {
@@ -91,11 +92,19 @@ func RenderStats(userConfig *config.UserConfig, container *commands.Container, v
 
 	var statsMap map[string]interface{}
 	err = json.Unmarshal(statsJsonBytes, &statsMap)
+	b, _ := json.MarshalIndent(statsMap, "", "  ")
+	_ = os.WriteFile("in.json", b, 0644)
 	if err != nil {
 		return "", err
 	}
 
-	convertBigMetricFromSchema(&statsMap)
+	// err = convertBigMetricFromSchema(&statsMap)
+	// b, _ = json.MarshalIndent(statsMap, "", "  ")
+	// _ = os.WriteFile("out.json", b, 0644)
+	// if err != nil {
+	// 	_ = os.WriteFile("out", []byte(err.Error()), 0644)
+	// 	return "", err
+	// }
 
 	originalStats, err := utils.MarshalIntoYaml(statsMap)
 	if err != nil {
@@ -111,6 +120,7 @@ func RenderStats(userConfig *config.UserConfig, container *commands.Container, v
 	)
 
 	return contents, nil
+
 }
 
 // plotGraph returns the plotted graph based on the graph spec and the stat history

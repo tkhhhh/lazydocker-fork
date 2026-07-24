@@ -18,16 +18,16 @@ func TestConvertBigMetricFromSchema(t *testing.T) {
 		{
 			name: "string schema: converts int64 bytes",
 			data: map[string]interface{}{
-				"client_stats": map[string]interface{}{
+				"ClientStats": map[string]interface{}{
 					"memory_stats": map[string]interface{}{
 						"limit": int64(2048),
 					},
 				},
 			},
 			expected: map[string]interface{}{
-				"client_stats": map[string]interface{}{
+				"ClientStats": map[string]interface{}{
 					"memory_stats": map[string]interface{}{
-						"limit": "2.000 KB",
+						"limit": "2.000KB",
 					},
 				},
 			},
@@ -35,7 +35,7 @@ func TestConvertBigMetricFromSchema(t *testing.T) {
 		{
 			name: "string schema: converts int64 nanoseconds",
 			data: map[string]interface{}{
-				"client_stats": map[string]interface{}{
+				"ClientStats": map[string]interface{}{
 					"cpu_stats": map[string]interface{}{
 						"cpu_usage": map[string]interface{}{
 							"total_usage":         int64(100000000000),
@@ -48,15 +48,15 @@ func TestConvertBigMetricFromSchema(t *testing.T) {
 				},
 			},
 			expected: map[string]interface{}{
-				"client_stats": map[string]interface{}{
+				"ClientStats": map[string]interface{}{
 					"cpu_stats": map[string]interface{}{
 						"cpu_usage": map[string]interface{}{
-							"total_usage":         "100.000 s",
-							"percpu_usage":        []string{"50.000 s", "50.000 s"},
-							"usage_in_kernelmode": "200.000 µs",
-							"usage_in_usermode":   "200.000 µs",
+							"total_usage":         "100.000s",
+							"percpu_usage":        []string{"50.000s", "50.000s"},
+							"usage_in_kernelmode": "200.000µs",
+							"usage_in_usermode":   "200.000µs",
 						},
-						"system_cpu_usage": "100.000 s",
+						"system_cpu_usage": "100.000s",
 					},
 				},
 			},
