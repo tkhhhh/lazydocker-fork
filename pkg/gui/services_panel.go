@@ -90,8 +90,7 @@ func (gui *Gui) getServicesPanel() *panels.SideListPanel[*commands.Service] {
 			return presentation.GetServiceDisplayStrings(&gui.Config.UserConfig.Gui, service)
 		},
 		Hide: func() bool {
-			// Show services panel if there are any compose projects (local or discovered)
-			return !gui.DockerCommand.InDockerComposeProject && len(gui.Panels.Services.List.GetAllItems()) == 0
+			return !gui.DockerCommand.IsProjectScoped()
 		},
 	}
 }
