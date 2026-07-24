@@ -18,35 +18,51 @@ import (
 	"github.com/samber/lo"
 )
 
-var SCHEMA_JSON = `{
-	"client_stats": {
-		"cpu_stats": {
-			"cpu_usage": {
-				"total_usage":         "nanoseconds",
-				"percpu_usage":        []string{"nanoseconds"},
-				"usage_in_kernelmode": "nanoseconds",
-				"usage_in_usermode":   "nanoseconds",
-			},
-			"system_cpu_usage": "nanoseconds",
-		},
-		"precpu_stats": {
-			"cpu_usage": {
-				"total_usage":         "nanoseconds",
-				"percpu_usage":        []string{"nanoseconds"},
-				"usage_in_kernelmode": "nanoseconds",
-				"usage_in_usermode":   "nanoseconds",
-			},
-			"system_cpu_usage": "nanoseconds",
-		},
-		"memory_stats": {
-			"stats": {
-				"hierarchical_memory_limit": "bytes",
-				"hierarchical_memsw_limit":  "bytes",
-			},
-			"limit": "bytes",
-		},
-	},
-}`
+// var SCHEMA_JSON = `{
+// 	"client_stats": {
+// 		"cpu_stats": {
+// 			"cpu_usage": {
+// 				"total_usage": "nanoseconds",
+// 				"percpu_usage": ["nanoseconds"],
+// 				"usage_in_kernelmode": "nanoseconds",
+// 				"usage_in_usermode": "nanoseconds"
+// 			},
+// 			"system_cpu_usage": "nanoseconds"
+// 		},
+// 		"precpu_stats": {
+// 			"cpu_usage": {
+// 				"total_usage": "nanoseconds",
+// 				"percpu_usage": ["nanoseconds"],
+// 				"usage_in_kernelmode": "nanoseconds",
+// 				"usage_in_usermode": "nanoseconds"
+// 			},
+// 			"system_cpu_usage": "nanoseconds"
+// 		},
+// 		"memory_stats": {
+// 			"stats": {
+// 				"hierarchical_memory_limit": "bytes",
+// 				"hierarchical_memsw_limit": "bytes"
+// 			},
+// 			"limit": "bytes"
+// 		}
+// 	}
+// }`
+
+var PATHS_TO_CONVERT_BIGMETRICS = []map[string]string{
+	{"client_stats.cpu_stats.cpu_usage.total_usage": "nanoseconds"},
+	{"client_stats.cpu_stats.cpu_usage.percpu_usage": "nanoseconds"},
+	{"client_stats.cpu_stats.cpu_usage.usage_in_kernelmode": "nanoseconds"},
+	{"client_stats.cpu_stats.cpu_usage.usage_in_usermode": "nanoseconds"},
+	{"client_stats.cpu_stats.system_cpu_usage": "nanoseconds"},
+	{"client_stats.precpu_stats.cpu_usage.total_usage": "nanoseconds"},
+	{"client_stats.precpu_stats.cpu_usage.percpu_usage": "nanoseconds"},
+	{"client_stats.precpu_stats.cpu_usage.usage_in_kernelmode": "nanoseconds"},
+	{"client_stats.precpu_stats.cpu_usage.usage_in_usermode": "nanoseconds"},
+	{"client_stats.precpu_stats.system_cpu_usage": "nanoseconds"},
+	{"client_stats.memory_stats.limit": "bytes"},
+	{"client_stats.memory_stats.stats.hierarchical_memory_limit": "bytes"},
+	{"client_stats.memory_stats.stats.hierarchical_memsw_limit": "bytes"},
+}
 
 func RenderStats(userConfig *config.UserConfig, container *commands.Container, viewWidth int) (string, error) {
 	stats, ok := container.GetLastStats()
@@ -79,7 +95,7 @@ func RenderStats(userConfig *config.UserConfig, container *commands.Container, v
 		return "", err
 	}
 
-	lookupAndConvertBigMetric(&statsMap)
+	convertBigMetricFromSchema(&statsMap)
 
 	originalStats, err := utils.MarshalIntoYaml(statsMap)
 	if err != nil {
@@ -189,56 +205,71 @@ func getFloat(unk interface{}) (float64, error) {
 	}
 }
 
-func lookupAndConvertBigMetric(data *map[string]interface{}) error {
-	var schema map[string]interface{}
-
-	// Unmarshal
-	err := json.Unmarshal([]byte(SCHEMA_JSON), &schema)
-	if err != nil {
-		fmt.Println("Error:", err)
-		return err
-	}
-
-	err = convertBigMetricFromSchema(data, "", schema)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func convertBigMetricFromSchema(data *map[string]interface{}, path string, schema interface{}) error {
-	switch value := schema.(type) {
-	case map[string]interface{}:
-		for key, val := range value {
-			path = fmt.Sprintf("%s.%s", path, key)
-			return convertBigMetricFromSchema(data, path, val)
-		}
-	case []string:
-		// use path to translate from []int to []string
-		metric, err := lookup.LookupString(data, strings.TrimPrefix(path, "."))
-		if err != nil {
-			return err
-		}
-		if reflect.TypeOf(metric.Interface()) != reflect.TypeOf([]int64{}) {
-			return fmt.Errorf("Can't convert %v to []int64", reflect.TypeOf(metric.Interface()))
-		} else {
-			longIntSlice := metric.Interface().([]int64)
-			formattedMetric := lo.Map(longIntSlice, func(val int64, index int) string {
-				return utils.FormatBigMetric(val, value[index])
-			})
-			return utils.SetObjectFieldByPath(data, path, formattedMetric)
-		}
-	case string:
-		// use path to translate from int/int64 to string
-		metric, err := lookup.LookupString(data, strings.TrimPrefix(path, "."))
-		if err != nil {
-			return err
-		}
-		if reflect.TypeOf(metric.Interface()) != reflect.TypeOf(int64(0)) {
-			return fmt.Errorf("Can't convert %v to int64", reflect.TypeOf(metric.Interface()))
-		} else {
-			formattedMetric := utils.FormatBigMetric(metric.Interface().(int64), value)
-			return utils.SetObjectFieldByPath(data, path, formattedMetric)
+func convertBigMetricFromSchema(data *map[string]interface{}) error {
+	// switch value := schema.(type) {
+	// case map[string]interface{}:
+	// 	for key, val := range value {
+	// 		path = fmt.Sprintf("%s.%s", path, key)
+	// 		if err := convertBigMetricFromSchema(data, path, val); err != nil {
+	// 			return err
+	// 		}
+	// 	}
+	// case []string:
+	// 	// use path to translate from []int to []string
+	// 	fmt.Println("Converting []int64 to []string for path:", path)
+	// 	metric, err := lookup.LookupString(data, strings.TrimPrefix(path, "."))
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	if reflect.TypeOf(metric.Interface()) != reflect.TypeOf([]int64{}) {
+	// 		return fmt.Errorf("Can't convert non []int64 %v to []string", reflect.TypeOf(metric.Interface()))
+	// 	} else {
+	// 		longIntSlice := metric.Interface().([]int64)
+	// 		formattedMetric := lo.Map(longIntSlice, func(val int64, index int) string {
+	// 			return utils.FormatBigMetric(val, value[index])
+	// 		})
+	// 		return utils.SetObjectFieldByPath(data, path, formattedMetric)
+	// 	}
+	// case string:
+	// 	// use path to translate from int/int64 to string
+	// 	fmt.Println("Converting int64 to string for path:", path)
+	// 	metric, err := lookup.LookupString(data, strings.TrimPrefix(path, "."))
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	if reflect.TypeOf(metric.Interface()) != reflect.TypeOf(int64(0)) {
+	// 		return fmt.Errorf("Can't convert non int64 %v to string", reflect.TypeOf(metric.Interface()))
+	// 	} else {
+	// 		formattedMetric := utils.FormatBigMetric(metric.Interface().(int64), value)
+	// 		return utils.SetObjectFieldByPath(data, path, formattedMetric)
+	// 	}
+	// }
+	// return nil
+	for _, pathToConvert := range PATHS_TO_CONVERT_BIGMETRICS {
+		for path, metricType := range pathToConvert {
+			metric, err := lookup.LookupString(data, path)
+			if err != nil {
+				if err == lookup.ErrKeyNotFound {
+					continue
+				}
+				return err
+			}
+			if reflect.TypeOf(metric.Interface()) == reflect.TypeOf(int64(0)) {
+				formattedMetric := utils.FormatBigMetric(metric.Interface().(int64), metricType)
+				err = utils.SetObjectFieldByPath(data, fmt.Sprintf(".%s", path), formattedMetric)
+				if err != nil {
+					return err
+				}
+			} else if reflect.TypeOf(metric.Interface()) == reflect.TypeOf([]int64{}) {
+				longIntSlice := metric.Interface().([]int64)
+				formattedMetric := lo.Map(longIntSlice, func(val int64, index int) string {
+					return utils.FormatBigMetric(val, metricType)
+				})
+				err = utils.SetObjectFieldByPath(data, fmt.Sprintf(".%s", path), formattedMetric)
+				if err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return nil
