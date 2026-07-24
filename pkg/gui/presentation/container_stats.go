@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -18,36 +17,6 @@ import (
 	"github.com/mcuadros/go-lookup"
 	"github.com/samber/lo"
 )
-
-// var SCHEMA_JSON = `{
-// 	"client_stats": {
-// 		"cpu_stats": {
-// 			"cpu_usage": {
-// 				"total_usage": "nanoseconds",
-// 				"percpu_usage": ["nanoseconds"],
-// 				"usage_in_kernelmode": "nanoseconds",
-// 				"usage_in_usermode": "nanoseconds"
-// 			},
-// 			"system_cpu_usage": "nanoseconds"
-// 		},
-// 		"precpu_stats": {
-// 			"cpu_usage": {
-// 				"total_usage": "nanoseconds",
-// 				"percpu_usage": ["nanoseconds"],
-// 				"usage_in_kernelmode": "nanoseconds",
-// 				"usage_in_usermode": "nanoseconds"
-// 			},
-// 			"system_cpu_usage": "nanoseconds"
-// 		},
-// 		"memory_stats": {
-// 			"stats": {
-// 				"hierarchical_memory_limit": "bytes",
-// 				"hierarchical_memsw_limit": "bytes"
-// 			},
-// 			"limit": "bytes"
-// 		}
-// 	}
-// }`
 
 var PATHS_TO_CONVERT_BIGMETRICS = []map[string]string{
 	{"ClientStats.cpu_stats.cpu_usage.total_usage": "nanoseconds"},
@@ -92,19 +61,14 @@ func RenderStats(userConfig *config.UserConfig, container *commands.Container, v
 
 	var statsMap map[string]interface{}
 	err = json.Unmarshal(statsJsonBytes, &statsMap)
-	b, _ := json.MarshalIndent(statsMap, "", "  ")
-	_ = os.WriteFile("in.json", b, 0644)
 	if err != nil {
 		return "", err
 	}
 
-	// err = convertBigMetricFromSchema(&statsMap)
-	// b, _ = json.MarshalIndent(statsMap, "", "  ")
-	// _ = os.WriteFile("out.json", b, 0644)
-	// if err != nil {
-	// 	_ = os.WriteFile("out", []byte(err.Error()), 0644)
-	// 	return "", err
-	// }
+	err = convertBigMetricFromSchema(&statsMap)
+	if err != nil {
+		return "", err
+	}
 
 	originalStats, err := utils.MarshalIntoYaml(statsMap)
 	if err != nil {
@@ -264,14 +228,19 @@ func convertBigMetricFromSchema(data *map[string]interface{}) error {
 				}
 				return err
 			}
-			if reflect.TypeOf(metric.Interface()) == reflect.TypeOf(int64(0)) {
-				formattedMetric := utils.FormatBigMetric(metric.Interface().(int64), metricType)
+			if !metric.IsValid() {
+				continue
+			}
+			if reflect.TypeOf(metric.Interface()) == reflect.TypeOf(float64(0)) {
+				formattedMetric := utils.FormatBigMetric(int64(metric.Interface().(float64)), metricType)
 				err = utils.SetObjectFieldByPath(data, fmt.Sprintf(".%s", path), formattedMetric)
 				if err != nil {
 					return err
 				}
-			} else if reflect.TypeOf(metric.Interface()) == reflect.TypeOf([]int64{}) {
-				longIntSlice := metric.Interface().([]int64)
+			} else if reflect.TypeOf(metric.Interface()) == reflect.TypeOf([]float64{}) {
+				longIntSlice := lo.Map(metric.Interface().([]float64), func(val float64, index int) int64 {
+					return int64(val)
+				})
 				formattedMetric := lo.Map(longIntSlice, func(val int64, index int) string {
 					return utils.FormatBigMetric(val, metricType)
 				})
